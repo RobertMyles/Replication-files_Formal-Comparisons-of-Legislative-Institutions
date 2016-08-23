@@ -9,8 +9,12 @@ library(stringi)
 library(Hmisc)
 library(lubridate)
 
-# Import CEBRAP data:
+# You will need access to the CEBRAP database to replicate the script below, 
+# it is too large for me to host on Github. The script below shows how the 
+# data were prepared. For a fully replicable script, see 
+# 'BPSR_Aug2016_Analysis.R'.
 
+# Import CEBRAP data:
 m1 <- mdb.get("BancoPublico.mdb")
 
 cam <- m1$tbl_DepF_X_Votacao %>% 
@@ -66,6 +70,31 @@ senate <- left_join(senate, sens) %>%
   dplyr::select(-Id.Votacao) %>% 
   mutate(house = "Senate")
 
+legislature <- m1$tbl_Legislatura %>% 
+  dplyr::select(-c(5:6)) %>% 
+  mutate(DataInicio = unlist(str_extract_all(DataInicio, "[0-9/]{8}"))) %>%
+  mutate(DataTermino = unlist(str_extract_all(DataTermino, "[0-9/]{8}"))) %>%
+  mutate(DataInicio = mdy(DataInicio), DataTermino = mdy(DataTermino))
+
 votes <- full_join(camara, senate)
+
+head(legislature)
+votes <- votes %>% 
+  mutate(legislature = ifelse(date > "1987-02-01"  & 
+                                date < "1991-01-31", 48,
+                              ifelse(date > "1991-02-01" &
+                                       date < "1995-01-31", 49,
+                                     ifelse(date > "1995-02-01" &
+                                              date < "1999-01-31", 50,
+                                            ifelse(date > "1999-02-01" &
+                                                     date < "2003-01-31", 51,
+                                                   ifelse(date > "2003-02-01" &
+                                                            date < "2007-01-31",
+                                                          52, ifelse(
+                                                            date > "2007-02-01"
+                                                            & date < "2011-01-31", 
+                                                            53, 0))))))) %>% 
+  dplyr::filter(legislature != 0)
+
 
 save(votes, file="votes.Rda")
